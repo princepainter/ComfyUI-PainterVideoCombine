@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-painter-video-info"
+version = "1.0.0"
+description = "ComfyUI node: extract fps/frames/duration/width/height from video"
+authors = [{name = "princepainter", email = "panqiangcool@qq.com"}]
+dependencies = ["opencv-python-headless"]
