@@ -52,8 +52,5 @@ The output video will be saved and automatically previewed in the node.
 Requires ffmpeg (automatically fetched via imageio-ffmpeg if not found).
 需要 ffmpeg（若未安装，会通过 imageio-ffmpeg 自动获取）。
 
-Enjoy smooth and silent video synthesis! 🎨
-享受流畅静谧的视频合成体验！🎨
-
-
-如果你后续增加了新功能（如支持更多编码器、分辨率自适应等），也可以在此基础上扩展。需要我帮你写更新日志或插件描述页，也欢迎继续提问！
+Enjoy smooth and silent video synthesis! 
+享受流畅静谧的视频合成体验！
