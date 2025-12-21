@@ -19,7 +19,7 @@ class PainterVideoCombine:
         return {
             "required": {
                 "images": ("IMAGE", ),
-                "frame_rate": ("INT", {"default": 24, "min": 1, "max": 120, "step": 1}),
+                "frame_rate": ("FLOAT", {"default": 24, "min": 1, "max": 120, "step": 0.1, "display": "number"}),
                 "format": (["video/h264-mp4", "video/webm", "image/gif"],),
                 "filename_prefix": ("STRING", {"default": "Painter_Video"}),
             },
