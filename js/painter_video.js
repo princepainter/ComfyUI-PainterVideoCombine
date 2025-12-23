@@ -50,7 +50,7 @@ app.registerExtension({
             const newOptions = [];
 
             newOptions.push({
-                content: "Save Preview",
+                content: "Save preview",
                 callback: () => {
                     const params = this.properties["painter_output_cache"];
                     if (params) {
@@ -63,12 +63,12 @@ app.registerExtension({
             });
 
             newOptions.push({
-                content: (video && video.paused) ? "Resume Preview" : "Pause Preview",
+                content: (video && video.paused) ? "Resume preview" : "Pause preview",
                 callback: () => { if (video) video.paused ? video.play() : video.pause(); }
             });
 
             newOptions.push({
-                content: "Sync Preview",
+                content: "Sync preview",
                 callback: () => {
                     if (video) {
                         video.pause();
