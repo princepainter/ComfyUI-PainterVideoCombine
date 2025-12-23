@@ -68,7 +68,7 @@ class PainterVideoCombine:
                 pass
 
         if ext == "mp4":
-            args += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "19", "-preset", "faster"]
+            args += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-preset", "faster"]
             if audio_temp_path:
                 args += ["-c:a", "aac", "-shortest"]
         elif ext == "webm":
