@@ -5,6 +5,7 @@ import folder_paths
 import tempfile
 import soundfile as sf
 from comfy.utils import ProgressBar
+import time
 
 try:
     import imageio_ffmpeg
@@ -45,13 +46,18 @@ class PainterVideoCombine:
         file_name = f"{filename}_{counter:05}_.{ext}"
         file_path = os.path.join(full_output_folder, file_name)
 
-        images_np = (images.cpu().numpy() * 255).astype(np.uint8)
+        # Data validation
+        images_np = images.cpu().numpy()
+        if not np.isfinite(images_np).all():
+            images_np = np.nan_to_num(images_np, nan=0.0, posinf=1.0, neginf=0.0)
+        images_np = np.clip(images_np, 0, 1)
+        images_np = (images_np * 255).astype(np.uint8)
         n, h, w, c = images_np.shape
         w, h = (w // 2) * 2, (h // 2) * 2
 
-        # Add -v quiet to suppress all FFmpeg logs
+        # Build FFmpeg arguments
         args = [
-            ffmpeg_path, "-v", "quiet", "-y",
+            ffmpeg_path, "-y",
             "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(frame_rate), "-i", "-"
         ]
 
@@ -64,8 +70,8 @@ class PainterVideoCombine:
                     sf.write(temp_audio.name, wav_data, audio['sample_rate'], format='WAV')
                     audio_temp_path = temp_audio.name
                 args += ["-i", audio_temp_path]
-            except:
-                pass
+            except Exception as e:
+                print(f"Warning: Audio processing failed: {e}")
 
         if ext == "mp4":
             args += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-preset", "faster"]
@@ -80,23 +86,44 @@ class PainterVideoCombine:
 
         args.append(file_path)
 
-        # Suppress all stdout/stderr from FFmpeg
-        process = subprocess.Popen(
-            args,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-
-        for i, frame in enumerate(images_np):
-            process.stdin.write(frame[:h, :w, :].tobytes())
-            pbar.update(1)
-
-        process.stdin.close()
-        process.wait()
-
-        if audio_temp_path and os.path.exists(audio_temp_path):
-            os.remove(audio_temp_path)
+        # Core fix: Use temp file to avoid pipe deadlock
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.raw', delete=False) as temp_video:
+            temp_video_path = temp_video.name
+            
+            # Write all frames to temp file
+            for i, frame in enumerate(images_np):
+                temp_video.write(frame[:h, :w, :].tobytes())
+                pbar.update(1)
+            
+            temp_video.flush()
+            os.fsync(temp_video.fileno())
+        
+        try:
+            # Read data from temp file
+            with open(temp_video_path, 'rb') as f:
+                process = subprocess.Popen(
+                    args,
+                    stdin=f,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                
+                stdout, stderr = process.communicate(timeout=60)
+                
+                if process.returncode != 0:
+                    error_msg = stderr.decode('utf-8', errors='ignore')
+                    raise RuntimeError(f"FFmpeg failed:\n{error_msg}")
+            
+            # Print concise info only on success
+            print(f"Video created!: {n} frames, {w}x{h}, {frame_rate}fps -> {file_name}")
+            
+        finally:
+            # Clean up temp files
+            if os.path.exists(temp_video_path):
+                os.remove(temp_video_path)
+            
+            if audio_temp_path and os.path.exists(audio_temp_path):
+                os.remove(audio_temp_path)
 
         return {
             "ui": {"painter_output": [{"filename": file_name, "subfolder": subfolder, "type": "output"}]},
