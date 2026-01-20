@@ -6,6 +6,10 @@ import tempfile
 import soundfile as sf
 from comfy.utils import ProgressBar
 import time
+import json
+import datetime
+from PIL import Image, ExifTags
+from PIL.PngImagePlugin import PngInfo
 
 try:
     import imageio_ffmpeg
@@ -26,6 +30,11 @@ class PainterVideoCombine:
             },
             "optional": {
                 "audio": ("AUDIO",),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "unique_id": "UNIQUE_ID"
             }
         }
 
@@ -35,7 +44,8 @@ class PainterVideoCombine:
     CATEGORY = "Painter/Video"
     FUNCTION = "combine_video"
 
-    def combine_video(self, images, frame_rate, format, filename_prefix="Painter", audio=None):
+    def combine_video(self, images, frame_rate, format, filename_prefix="Painter", audio=None, 
+                      prompt=None, extra_pnginfo=None, unique_id=None):
         pbar = ProgressBar(len(images))
         output_dir = folder_paths.get_output_directory()
         full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
@@ -45,6 +55,14 @@ class PainterVideoCombine:
         ext = "mp4" if "mp4" in format else ("webm" if "webm" in format else "gif")
         file_name = f"{filename}_{counter:05}_.{ext}"
         file_path = os.path.join(full_output_folder, file_name)
+
+        # Build metadata
+        video_metadata = {}
+        if prompt is not None:
+            video_metadata["prompt"] = json.dumps(prompt)
+        if extra_pnginfo is not None:
+            for x in extra_pnginfo:
+                video_metadata[x] = extra_pnginfo[x]
 
         # Data validation
         images_np = images.cpu().numpy()
@@ -83,6 +101,28 @@ class PainterVideoCombine:
                 args += ["-c:a", "libvorbis", "-shortest"]
         else:
             args += ["-vf", "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"]
+
+        # Add metadata if available
+        metadata_path = None
+        if video_metadata:
+            try:
+                metadata = json.dumps(video_metadata)
+                metadata = metadata.replace("\\", "\\\\")
+                metadata = metadata.replace(";", "\\;")
+                metadata = metadata.replace("#", "\\#")
+                metadata = metadata.replace("=", "\\=")
+                metadata = metadata.replace("\n", "\\\n")
+                metadata = "comment=" + metadata
+                
+                metadata_path = os.path.join(tempfile.gettempdir(), f"painter_metadata_{unique_id}.txt")
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    f.write(";FFMETADATA1\n")
+                    f.write(metadata)
+                
+                # Insert metadata input into ffmpeg args
+                args = args[:1] + ["-i", metadata_path] + args[1:] + ["-metadata", "creation_time=now"]
+            except Exception as e:
+                print(f"Warning: Metadata processing failed: {e}")
 
         args.append(file_path)
 
@@ -124,9 +164,11 @@ class PainterVideoCombine:
             
             if audio_temp_path and os.path.exists(audio_temp_path):
                 os.remove(audio_temp_path)
+                
+            if metadata_path and os.path.exists(metadata_path):
+                os.remove(metadata_path)
 
         return {
             "ui": {"painter_output": [{"filename": file_name, "subfolder": subfolder, "type": "output"}]},
             "result": (file_name,)
         }
-
