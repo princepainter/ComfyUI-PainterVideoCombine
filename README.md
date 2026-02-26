@@ -1,4 +1,4 @@
-# PainterVideoCombine 此节点由抖音博主:绘画小子 制作
+# PainterVideoCombine 此节点是在VHS videocombine基础上修改简化，感谢VHS团队!
 
 A lightweight and intuitive video synthesis node for ComfyUI.  
 轻量直观的 ComfyUI 视频合成节点。
